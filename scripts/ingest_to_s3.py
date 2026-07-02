@@ -33,13 +33,13 @@ def get_jwt_token():
     else:
         raise Exception(f"Failed to login: {response.status_code} - {response.text}")
 
-def fetch_payins(token):
-    print("📥 Fetching transaction data (/payins)...")
+def fetch_all_records(token, endpoint):
+    print(f"📥 Fetching data from /{endpoint}...")
     all_data = []
     page = 1
     
     while True:
-        url = f"{API_URL}/payins?page={page}"
+        url = f"{API_URL}/{endpoint}?page={page}"
         headers = {
             "Authorization": f"Bearer {token}"
         }
@@ -55,14 +55,14 @@ def fetch_payins(token):
                 break
             page += 1
         else:
-            raise Exception(f"Failed to fetch payins page {page}: {response.status_code} - {response.text}")
+            raise Exception(f"Failed to fetch {endpoint} page {page}: {response.status_code} - {response.text}")
             
-    print(f"✅ Fetched all data. Total: {len(all_data)} transaction records across {page} page(s).")
+    print(f"✅ Fetched all {endpoint}. Total: {len(all_data)} records across {page} page(s).")
     return all_data
 
-def upload_to_s3(data, data_type="payins"):
+def upload_to_s3(data, data_type):
     if not data:
-        print("⚠️ No data to upload.")
+        print(f"⚠️ No data to upload for {data_type}.")
         return
 
     # Initialize boto3 S3 client
@@ -95,15 +95,22 @@ def upload_to_s3(data, data_type="payins"):
             Body=json_data,
             ContentType="application/json"
         )
-        print("✅ Upload completed successfully!")
+        print(f"✅ {data_type} upload completed successfully!")
     except Exception as e:
-        print(f"❌ Failed to upload to S3: {str(e)}")
+        print(f"❌ Failed to upload {data_type} to S3: {str(e)}")
 
 def main():
     try:
         token = get_jwt_token()
-        payins = fetch_payins(token)
-        upload_to_s3(payins, "payins")
+        
+        # Ingest all data types (Facts & Dimensions)
+        datasets = ["payins", "payouts", "merchants", "accounts"]
+        
+        for dataset in datasets:
+            data = fetch_all_records(token, dataset)
+            upload_to_s3(data, dataset)
+            print("-" * 50)
+            
     except Exception as e:
         print(f"❌ Ingestion Error: {str(e)}")
 
