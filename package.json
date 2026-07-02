@@ -1,0 +1,32 @@
+{
+  "name": "mock-data-generator-api-v3",
+  "version": "1.0.0",
+  "description": "Mock fintech data generator with REST API + Kafka producer + file output (v3)",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "generate": "node generateAll.js",
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^8.0.2",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "csv-writer": "^1.6.0",
+    "dayjs": "^1.11.18",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.5.2",
+    "fs-extra": "^11.3.2",
+    "jsonwebtoken": "^9.0.3",
+    "kafkajs": "^2.2.4",
+    "mongoose": "^9.0.2",
+    "nanoid": "^4.0.0",
+    "p-limit": "^7.1.1",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}

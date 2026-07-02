@@ -1,0 +1,13 @@
+{
+  "watch": [
+    "generators",
+    "utils",
+    "server.js",
+    "generateAll.js"
+  ],
+  "ignore": [
+    "data/*"
+  ],
+  "ext": "js,json",
+  "exec": "node server.js"
+}
