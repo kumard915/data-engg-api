@@ -77,8 +77,9 @@ let autoInsertInterval = null; // reference to interval
  *  Helper: Initialize Database Schema (Tables)
  * ------------------------------------------------------- */
 async function initializeDatabaseSchema() {
-  const client = await pgPool.connect();
+  let client;
   try {
+    client = await pgPool.connect();
     console.log("⚙️ Initializing database tables if they do not exist...");
     
     // Create merchants table
@@ -169,7 +170,7 @@ async function initializeDatabaseSchema() {
   } catch (err) {
     console.error("❌ Database schema initialization failed:", err.message);
   } finally {
-    client.release();
+    if (client) client.release();
   }
 }
 
@@ -684,8 +685,9 @@ app.get("/payins", authenticateJWT, async (req, res) => {
   const page = Math.max(+req.query.page || 1, 1);
   const offset = (page - 1) * PAGE_SIZE;
 
-  const client = await pgPool.connect();
+  let client;
   try {
+    client = await pgPool.connect();
     // 1️⃣ Get total count
     const countResult = await client.query(`SELECT COUNT(*) FROM payins`);
     const totalRows = Number(countResult.rows[0].count);
@@ -723,7 +725,7 @@ app.get("/payins", authenticateJWT, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
@@ -732,8 +734,9 @@ app.get("/payouts", authenticateJWT, async (req, res) => {
   const page = Math.max(+req.query.page || 1, 1);
   const offset = (page - 1) * PAGE_SIZE;
 
-  const client = await pgPool.connect();
+  let client;
   try {
+    client = await pgPool.connect();
     const totalResult = await client.query(`SELECT COUNT(*) FROM payouts`);
     const totalRows = Number(totalResult.rows[0].count);
     const totalPages = Math.ceil(totalRows / PAGE_SIZE);
@@ -765,7 +768,7 @@ app.get("/payouts", authenticateJWT, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
@@ -774,8 +777,9 @@ app.get("/accounts", authenticateJWT, async (req, res) => {
   const page = Math.max(+req.query.page || 1, 1);
   const offset = (page - 1) * PAGE_SIZE;
 
-  const client = await pgPool.connect();
+  let client;
   try {
+    client = await pgPool.connect();
     const totalResult = await client.query(`SELECT COUNT(*) FROM accounts`);
     const totalRows = Number(totalResult.rows[0].count);
     const totalPages = Math.ceil(totalRows / PAGE_SIZE);
@@ -807,7 +811,7 @@ app.get("/accounts", authenticateJWT, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
@@ -816,8 +820,9 @@ app.get("/merchants", authenticateJWT, async (req, res) => {
   const page = Math.max(+req.query.page || 1, 1);
   const offset = (page - 1) * PAGE_SIZE;
 
-  const client = await pgPool.connect();
+  let client;
   try {
+    client = await pgPool.connect();
     const totalResult = await client.query(`SELECT COUNT(*) FROM merchants`);
     const totalRows = Number(totalResult.rows[0].count);
     const totalPages = Math.ceil(totalRows / PAGE_SIZE);
@@ -849,7 +854,7 @@ app.get("/merchants", authenticateJWT, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
