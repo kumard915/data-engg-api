@@ -19,6 +19,26 @@ AWS_REGION = os.getenv("AWS_REGION", "ap-south-1")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 
+# File to store the last successfully ingested record IDs (watermarks)
+WATERMARK_FILE = os.path.join(os.path.dirname(__file__), "watermarks.json")
+
+def load_watermarks():
+    if os.path.exists(WATERMARK_FILE):
+        try:
+            with open(WATERMARK_FILE, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"⚠️ Warning: Could not read watermark file: {str(e)}")
+            return {}
+    return {}
+
+def save_watermarks(watermarks):
+    try:
+        with open(WATERMARK_FILE, "w") as f:
+            json.dump(watermarks, f, indent=2)
+    except Exception as e:
+        print(f"⚠️ Warning: Could not save watermark file: {str(e)}")
+
 def get_jwt_token():
     print("🔑 Authenticating with API...")
     url = f"{API_URL}/login"
@@ -33,12 +53,13 @@ def get_jwt_token():
     else:
         raise Exception(f"Failed to login: {response.status_code} - {response.text}")
 
-def fetch_all_records(token, endpoint):
+def fetch_all_records(token, endpoint, last_processed_id=None):
     print(f"📥 Fetching data from /{endpoint}...")
     all_data = []
     page = 1
+    stop_fetching = False
     
-    while True:
+    while not stop_fetching:
         url = f"{API_URL}/{endpoint}?page={page}"
         headers = {
             "Authorization": f"Bearer {token}"
@@ -47,8 +68,21 @@ def fetch_all_records(token, endpoint):
         if response.status_code == 200:
             res_json = response.json()
             data = res_json.get("data", [])
-            all_data.extend(data)
             
+            if not data:
+                break
+                
+            for record in data:
+                # Early Termination Check
+                if last_processed_id and record.get("id") == last_processed_id:
+                    print(f"🛑 Match found for last processed ID: '{last_processed_id}'. Stopping fetch.")
+                    stop_fetching = True
+                    break
+                all_data.append(record)
+                
+            if stop_fetching:
+                break
+                
             meta = res_json.get("meta", {})
             has_next = meta.get("hasNextPage", False)
             if not has_next:
@@ -57,12 +91,12 @@ def fetch_all_records(token, endpoint):
         else:
             raise Exception(f"Failed to fetch {endpoint} page {page}: {response.status_code} - {response.text}")
             
-    print(f"✅ Fetched all {endpoint}. Total: {len(all_data)} records across {page} page(s).")
+    print(f"✅ Fetched new {endpoint}. Total: {len(all_data)} records.")
     return all_data
 
 def upload_to_s3(data, data_type):
     if not data:
-        print(f"⚠️ No data to upload for {data_type}.")
+        print(f"⚠️ No new data to upload for {data_type}.")
         return
 
     # Initialize boto3 S3 client
@@ -102,14 +136,33 @@ def upload_to_s3(data, data_type):
 def main():
     try:
         token = get_jwt_token()
+        watermarks = load_watermarks()
+        new_watermarks = watermarks.copy()
         
-        # Ingest all data types (Facts & Dimensions)
-        datasets = ["payins", "payouts", "merchants", "accounts"]
-        
-        for dataset in datasets:
+        # 1️⃣ Ingest Facts (Payins & Payouts) incrementally
+        facts = ["payins", "payouts"]
+        for dataset in facts:
+            last_id = watermarks.get(dataset)
+            data = fetch_all_records(token, dataset, last_processed_id=last_id)
+            
+            if data:
+                upload_to_s3(data, dataset)
+                # The first item in 'data' is the newest one (ORDER BY created_on DESC)
+                new_watermarks[dataset] = data[0]["id"]
+            else:
+                print(f"ℹ️ No new records found for {dataset}.")
+                
+            print("-" * 50)
+            
+        # 2️⃣ Ingest Dimensions (Merchants & Accounts) - full snapshot
+        dimensions = ["merchants", "accounts"]
+        for dataset in dimensions:
             data = fetch_all_records(token, dataset)
             upload_to_s3(data, dataset)
             print("-" * 50)
+            
+        # Save updated watermarks
+        save_watermarks(new_watermarks)
             
     except Exception as e:
         print(f"❌ Ingestion Error: {str(e)}")
